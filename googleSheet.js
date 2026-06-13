@@ -1,6 +1,6 @@
 const { google } = require("googleapis");
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID;
+let SHEET_ID = process.env.GOOGLE_SHEET_ID || "";
 
 let credentials = null;
 
@@ -16,7 +16,10 @@ if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
 
 const auth = new google.auth.GoogleAuth({
   credentials,
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+  scopes: [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+  ]
 });
 
 async function getSheets() {
@@ -24,23 +27,65 @@ async function getSheets() {
   return google.sheets({ version: "v4", auth: client });
 }
 
+let monthlySpreadsheetIdCache = null;
+
+function getCurrentMonthName() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `車隊記帳_${year}-${month}`;
+}
+
+async function createMonthlySpreadsheet() {
+  const sheets = await getSheets();
+  const title = getCurrentMonthName();
+
+  const res = await sheets.spreadsheets.create({
+    requestBody: {
+      properties: { title }
+    }
+  });
+
+  monthlySpreadsheetIdCache = res.data.spreadsheetId;
+  SHEET_ID = monthlySpreadsheetIdCache;
+
+  console.log("已建立本月試算表:", title, monthlySpreadsheetIdCache);
+
+  return monthlySpreadsheetIdCache;
+}
+
+async function getActiveSpreadsheetId() {
+  if (monthlySpreadsheetIdCache) return monthlySpreadsheetIdCache;
+
+  if (SHEET_ID) {
+    monthlySpreadsheetIdCache = SHEET_ID;
+    return SHEET_ID;
+  }
+
+  return await createMonthlySpreadsheet();
+}
+
 async function getSpreadsheetInfo() {
   const sheets = await getSheets();
+  const spreadsheetId = await getActiveSpreadsheetId();
+
   const res = await sheets.spreadsheets.get({
-    spreadsheetId: SHEET_ID
+    spreadsheetId
   });
+
   return res.data;
 }
 
 async function ensureSheetExists(sheetName) {
   const sheets = await getSheets();
+  const spreadsheetId = await getActiveSpreadsheetId();
   const info = await getSpreadsheetInfo();
 
   const exists = info.sheets.some(s => s.properties.title === sheetName);
 
   if (!exists) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId,
       requestBody: {
         requests: [
           {
@@ -59,9 +104,10 @@ async function ensureSheetExists(sheetName) {
 
 async function ensureHeader(sheetName) {
   const sheets = await getSheets();
+  const spreadsheetId = await getActiveSpreadsheetId();
 
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId,
     range: `${sheetName}!A1:G1`
   });
 
@@ -69,7 +115,7 @@ async function ensureHeader(sheetName) {
 
   if (values.length === 0) {
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId,
       range: `${sheetName}!A1:G1`,
       valueInputOption: "USER_ENTERED",
       requestBody: {
@@ -89,9 +135,10 @@ async function ensureHeader(sheetName) {
 
 async function formatSheet(sheetName) {
   const sheets = await getSheets();
+  const spreadsheetId = await getActiveSpreadsheetId();
 
   const info = await sheets.spreadsheets.get({
-    spreadsheetId: SHEET_ID
+    spreadsheetId
   });
 
   const target = info.data.sheets.find(
@@ -103,21 +150,18 @@ async function formatSheet(sheetName) {
   const sheetId = target.properties.sheetId;
 
   await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId,
     requestBody: {
       requests: [
         {
           updateSheetProperties: {
             properties: {
               sheetId,
-              gridProperties: {
-                frozenRowCount: 1
-              }
+              gridProperties: { frozenRowCount: 1 }
             },
             fields: "gridProperties.frozenRowCount"
           }
         },
-
         {
           repeatCell: {
             range: {
@@ -146,7 +190,6 @@ async function formatSheet(sheetName) {
             fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,borders)"
           }
         },
-
         ...[
           { col: 0, color: { red: 1, green: 1, blue: 0 } },
           { col: 1, color: { red: 0, green: 1, blue: 1 } },
@@ -172,7 +215,6 @@ async function formatSheet(sheetName) {
             fields: "userEnteredFormat.backgroundColor"
           }
         })),
-
         {
           repeatCell: {
             range: {
@@ -200,7 +242,6 @@ async function formatSheet(sheetName) {
             fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,borders)"
           }
         },
-
         {
           repeatCell: {
             range: {
@@ -219,7 +260,6 @@ async function formatSheet(sheetName) {
             fields: "userEnteredFormat.textFormat.foregroundColor"
           }
         },
-
         ...[
           { start: 0, end: 1, width: 80 },
           { start: 1, end: 2, width: 80 },
@@ -256,9 +296,10 @@ function getOrderKey(text) {
 
 async function clearSummaryRows(sheetName) {
   const sheets = await getSheets();
+  const spreadsheetId = await getActiveSpreadsheetId();
 
   const read = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId,
     range: `${sheetName}!A:G`
   });
 
@@ -269,7 +310,7 @@ async function clearSummaryRows(sheetName) {
 
     if (rowText.includes("回扣:") || rowText.includes("158街口")) {
       await sheets.spreadsheets.values.clear({
-        spreadsheetId: SHEET_ID,
+        spreadsheetId,
         range: `${sheetName}!A${i + 1}:G${i + 1}`
       });
     }
@@ -278,9 +319,10 @@ async function clearSummaryRows(sheetName) {
 
 async function updateSummary(sheetName) {
   const sheets = await getSheets();
+  const spreadsheetId = await getActiveSpreadsheetId();
 
   const read = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId,
     range: `${sheetName}!A:G`
   });
 
@@ -299,20 +341,19 @@ async function updateSummary(sheetName) {
 
   const fee = 2000;
   const finalTotal = total + fee;
-
   const summaryRow = rows.length + 1;
 
   await sheets.spreadsheets.values.update({
-  spreadsheetId: SHEET_ID,
-  range: `${sheetName}!C${summaryRow}:C${summaryRow + 1}`,
-  valueInputOption: "USER_ENTERED",
-  requestBody: {
-    values: [
-      [`回扣:${total} 月費:${fee} 總計:${finalTotal}`],
-      ["158街口:903626458"]
-    ]
-  }
-});
+    spreadsheetId,
+    range: `${sheetName}!C${summaryRow}:C${summaryRow + 1}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: {
+      values: [
+        [`回扣:${total} 月費:${fee} 總計:${finalTotal}`],
+        ["158街口:903626458"]
+      ]
+    }
+  });
 }
 
 async function appendAccountingRecord(record) {
@@ -322,9 +363,10 @@ async function appendAccountingRecord(record) {
   await clearSummaryRows(sheetName);
 
   const sheets = await getSheets();
+  const spreadsheetId = await getActiveSpreadsheetId();
 
   const read = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId,
     range: `${sheetName}!A:G`
   });
 
@@ -332,14 +374,14 @@ async function appendAccountingRecord(record) {
 
   let targetRow = -1;
 
-for (let i = 1; i < rows.length; i++) {
-  const rowOrderCode = rows[i][2];
+  for (let i = 1; i < rows.length; i++) {
+    const rowOrderCode = rows[i][2];
 
-  if (getOrderKey(rowOrderCode) === getOrderKey(record.orderCode)) {
-    targetRow = i + 1;
-    break;
+    if (getOrderKey(rowOrderCode) === getOrderKey(record.orderCode)) {
+      targetRow = i + 1;
+      break;
+    }
   }
-}
 
   const values = [[
     record.date,
@@ -353,19 +395,19 @@ for (let i = 1; i < rows.length; i++) {
 
   if (targetRow !== -1) {
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId,
       range: `${sheetName}!A${targetRow}:G${targetRow}`,
       valueInputOption: "USER_ENTERED",
       requestBody: { values }
     });
 
-console.log("更新既有記帳:", record.plate, record.orderCode, record.item);
-await updateSummary(sheetName);
-return;
+    console.log("更新既有記帳:", record.plate, record.orderCode, record.item);
+    await updateSummary(sheetName);
+    return;
   }
 
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId,
     range: `${sheetName}!A:G`,
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
