@@ -86,6 +86,12 @@ async function ensureHeader(sheetName) {
   }
 }
 
+function getOrderKey(text) {
+  return String(text || "")
+    .replace(/\s*百回\s*/g, "")
+    .trim();
+}
+
 async function appendAccountingRecord(record) {
   const sheetName = record.plate;
 
@@ -102,13 +108,14 @@ async function appendAccountingRecord(record) {
 
   let targetRow = -1;
 
-  for (let i = 1; i < rows.length; i++) {
-    const rowOrderCode = rows[i][2];
-    if (rowOrderCode === record.orderCode) {
-      targetRow = i + 1;
-      break;
-    }
+for (let i = 1; i < rows.length; i++) {
+  const rowOrderCode = rows[i][2];
+
+  if (getOrderKey(rowOrderCode) === getOrderKey(record.orderCode)) {
+    targetRow = i + 1;
+    break;
   }
+}
 
   const values = [[
     record.date,

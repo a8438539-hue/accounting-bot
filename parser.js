@@ -54,19 +54,19 @@ const orderCode = orderLine;
     };
   }
 
-  // 3. 補百回金額：600/80
-  const fareMatch = actionLine.match(/^(\d+)\/(\d+)$/);
-  if (fareMatch) {
-    return {
-      mode: "hundred_final",
-      group,
-      orderCode,
-      plate: plateLine,
-      fare: Number(fareMatch[1]),
-      item: "百回",
-      amount: Number(fareMatch[2])
-    };
-  }
+// 3. 補百回金額：600/80
+const fareMatch = actionLine.match(/^(\d+)\/(\d+)$/);
+if (fareMatch && orderLine.includes("百回")) {
+  return {
+    mode: "hundred_final",
+    group,
+    orderCode,
+    plate: plateLine,
+    fare: Number(fareMatch[1]),
+    item: "百回",
+    amount: Number(fareMatch[2])
+  };
+}
 
   return null;
 }
