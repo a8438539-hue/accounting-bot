@@ -254,6 +254,28 @@ function getOrderKey(text) {
     .trim();
 }
 
+async function clearSummaryRows(sheetName) {
+  const sheets = await getSheets();
+
+  const read = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${sheetName}!A:G`
+  });
+
+  const rows = read.data.values || [];
+
+  for (let i = rows.length - 1; i >= 1; i--) {
+    const rowText = rows[i].join("");
+
+    if (rowText.includes("回扣:") || rowText.includes("158街口")) {
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: SHEET_ID,
+        range: `${sheetName}!A${i + 1}:G${i + 1}`
+      });
+    }
+  }
+}
+
 async function updateSummary(sheetName) {
   const sheets = await getSheets();
 
@@ -278,7 +300,7 @@ async function updateSummary(sheetName) {
   const fee = 2000;
   const finalTotal = total + fee;
 
-  const summaryRow = rows.length + 2;
+  const summaryRow = rows.length + 1;
 
   await sheets.spreadsheets.values.update({
   spreadsheetId: SHEET_ID,
@@ -297,6 +319,7 @@ async function appendAccountingRecord(record) {
   const sheetName = record.plate;
 
   await ensureSheetExists(sheetName);
+  await clearSummaryRows(sheetName);
 
   const sheets = await getSheets();
 
