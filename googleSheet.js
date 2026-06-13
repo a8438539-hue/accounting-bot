@@ -93,23 +93,54 @@ async function appendAccountingRecord(record) {
 
   const sheets = await getSheets();
 
+  const read = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${sheetName}!A:G`
+  });
+
+  const rows = read.data.values || [];
+
+  let targetRow = -1;
+
+  for (let i = 1; i < rows.length; i++) {
+    const rowOrderCode = rows[i][2];
+    if (rowOrderCode === record.orderCode) {
+      targetRow = i + 1;
+      break;
+    }
+  }
+
+  const values = [[
+    record.date,
+    record.group,
+    record.orderCode,
+    record.fare,
+    record.item,
+    record.amount,
+    record.fleet
+  ]];
+
+  if (targetRow !== -1) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `${sheetName}!A${targetRow}:G${targetRow}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values }
+    });
+
+    console.log("更新既有記帳:", record.plate, record.orderCode, record.item);
+    return;
+  }
+
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
     range: `${sheetName}!A:G`,
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
-    requestBody: {
-      values: [[
-        record.date,
-        record.group,
-        record.orderCode,
-        record.fare,
-        record.item,
-        record.amount,
-        record.fleet
-      ]]
-    }
+    requestBody: { values }
   });
+
+  console.log("新增記帳:", record.plate, record.orderCode, record.item);
 }
 
 module.exports = {
