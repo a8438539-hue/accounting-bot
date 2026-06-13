@@ -419,5 +419,28 @@ async function appendAccountingRecord(record) {
 }
 
 module.exports = {
-  appendAccountingRecord
+  appendAccountingRecord,
+  getPlateRows
 };
+
+async function getPlateRows(plate) {
+  const sheetName = plate;
+
+  await ensureSheetExists(sheetName);
+
+  const sheets = await getSheets();
+  const spreadsheetId = await getActiveSpreadsheetId();
+
+  const read = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A:G`
+  });
+
+  const rows = read.data.values || [];
+
+  // 去掉表頭、統計列
+  return rows.slice(1).filter(row => {
+    const text = row.join("");
+    return !text.includes("回扣:") && !text.includes("158街口");
+  });
+}

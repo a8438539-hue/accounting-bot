@@ -4,7 +4,8 @@ const express = require("express");
 const line = require("@line/bot-sdk");
 
 const { parseAccountingMessage } = require("./parser");
-const { appendAccountingRecord } = require("./googleSheet");
+const { appendAccountingRecord, getPlateRows } = require("./googleSheet");
+const { createPdfReport } = require("./pdfReport");
 
 const app = express();
 
@@ -48,6 +49,15 @@ async function handleEvent(event) {
   if (event.message.type !== "text") return;
 
   const text = event.message.text;
+  if (text.startsWith("PDF ")) {
+  const plate = text.replace("PDF", "").trim();
+
+  const rows = await getPlateRows(plate);
+  const filePath = await createPdfReport(plate, rows);
+
+  console.log("PDF已產生:", filePath);
+  return;
+}
 
   const parsed = parseAccountingMessage(text);
   if (!parsed) return;
