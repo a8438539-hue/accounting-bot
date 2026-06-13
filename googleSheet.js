@@ -54,6 +54,7 @@ async function ensureSheetExists(sheetName) {
   }
 
   await ensureHeader(sheetName);
+  await formatSheet(sheetName);
 }
 
 async function ensureHeader(sheetName) {
@@ -84,6 +85,166 @@ async function ensureHeader(sheetName) {
       }
     });
   }
+}
+
+async function formatSheet(sheetName) {
+  const sheets = await getSheets();
+
+  const info = await sheets.spreadsheets.get({
+    spreadsheetId: SHEET_ID
+  });
+
+  const target = info.data.sheets.find(
+    s => s.properties.title === sheetName
+  );
+
+  if (!target) return;
+
+  const sheetId = target.properties.sheetId;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: {
+              sheetId,
+              gridProperties: {
+                frozenRowCount: 1
+              }
+            },
+            fields: "gridProperties.frozenRowCount"
+          }
+        },
+
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 0,
+              endRowIndex: 1,
+              startColumnIndex: 0,
+              endColumnIndex: 7
+            },
+            cell: {
+              userEnteredFormat: {
+                horizontalAlignment: "CENTER",
+                verticalAlignment: "MIDDLE",
+                textFormat: {
+                  bold: true,
+                  fontSize: 11
+                },
+                borders: {
+                  top: { style: "SOLID" },
+                  bottom: { style: "SOLID" },
+                  left: { style: "SOLID" },
+                  right: { style: "SOLID" }
+                }
+              }
+            },
+            fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,borders)"
+          }
+        },
+
+        ...[
+          { col: 0, color: { red: 1, green: 1, blue: 0 } },
+          { col: 1, color: { red: 0, green: 1, blue: 1 } },
+          { col: 2, color: { red: 0, green: 1, blue: 0 } },
+          { col: 3, color: { red: 0.25, green: 0.55, blue: 0.9 } },
+          { col: 4, color: { red: 1, green: 1, blue: 0 } },
+          { col: 5, color: { red: 1, green: 1, blue: 0 } },
+          { col: 6, color: { red: 0.25, green: 0.55, blue: 0.9 } }
+        ].map(item => ({
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 0,
+              endRowIndex: 1,
+              startColumnIndex: item.col,
+              endColumnIndex: item.col + 1
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: item.color
+              }
+            },
+            fields: "userEnteredFormat.backgroundColor"
+          }
+        })),
+
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 1,
+              startColumnIndex: 0,
+              endColumnIndex: 7
+            },
+            cell: {
+              userEnteredFormat: {
+                horizontalAlignment: "CENTER",
+                verticalAlignment: "MIDDLE",
+                textFormat: {
+                  bold: true,
+                  fontSize: 10
+                },
+                borders: {
+                  top: { style: "SOLID" },
+                  bottom: { style: "SOLID" },
+                  left: { style: "SOLID" },
+                  right: { style: "SOLID" }
+                }
+              }
+            },
+            fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat,borders)"
+          }
+        },
+
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 1,
+              startColumnIndex: 4,
+              endColumnIndex: 5
+            },
+            cell: {
+              userEnteredFormat: {
+                textFormat: {
+                  foregroundColor: { red: 1, green: 0.45, blue: 0 }
+                }
+              }
+            },
+            fields: "userEnteredFormat.textFormat.foregroundColor"
+          }
+        },
+
+        ...[
+          { start: 0, end: 1, width: 80 },
+          { start: 1, end: 2, width: 80 },
+          { start: 2, end: 3, width: 420 },
+          { start: 3, end: 4, width: 110 },
+          { start: 4, end: 5, width: 110 },
+          { start: 5, end: 6, width: 110 },
+          { start: 6, end: 7, width: 110 }
+        ].map(w => ({
+          updateDimensionProperties: {
+            range: {
+              sheetId,
+              dimension: "COLUMNS",
+              startIndex: w.start,
+              endIndex: w.end
+            },
+            properties: {
+              pixelSize: w.width
+            },
+            fields: "pixelSize"
+          }
+        }))
+      ]
+    }
+  });
 }
 
 function getOrderKey(text) {
