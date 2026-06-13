@@ -281,16 +281,16 @@ async function updateSummary(sheetName) {
   const summaryRow = rows.length + 2;
 
   await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID,
-    range: `${sheetName}!A${summaryRow}:G${summaryRow + 1}`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: {
-      values: [
-        [`回扣:${total} 月費:${fee} 總計:${finalTotal}`, "", "", "", "", "", ""],
-        ["158街口:903626458", "", "", "", "", "", ""]
-      ]
-    }
-  });
+  spreadsheetId: SHEET_ID,
+  range: `${sheetName}!C${summaryRow}:C${summaryRow + 1}`,
+  valueInputOption: "USER_ENTERED",
+  requestBody: {
+    values: [
+      [`回扣:${total} 月費:${fee} 總計:${finalTotal}`],
+      ["158街口:903626458"]
+    ]
+  }
+});
 }
 
 async function appendAccountingRecord(record) {
