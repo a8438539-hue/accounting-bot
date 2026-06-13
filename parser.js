@@ -11,8 +11,11 @@ function parseAccountingMessage(text) {
   const actionLine = lines[2];
 
   const groupMatch = orderLine.match(/^#([^\/\s]+)/);
-  const group = groupMatch ? groupMatch[1] : "";
-  const orderCode = groupMatch ? `#${group}` : "";
+
+const group = groupMatch ? groupMatch[1] : "";
+
+// 保留完整單號+地址
+const orderCode = orderLine;
 
   if (!orderCode) return null;
 
