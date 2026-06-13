@@ -9,13 +9,15 @@ const { createPdfReport } = require("./pdfReport");
 
 const app = express();
 
+app.use("/reports", express.static("reports"));
+
 const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN.trim(),
+  channelSecret: process.env.LINE_CHANNEL_SECRET.trim()
 };
 
 const client = new line.messagingApi.MessagingApiClient({
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN.trim()
 });
 
 let sheetQueue = Promise.resolve();
@@ -48,16 +50,33 @@ async function handleEvent(event) {
   if (event.type !== "message") return;
   if (event.message.type !== "text") return;
 
-  const text = event.message.text;
+  const text = event.message.text.trim();
+
   if (text.startsWith("PDF ")) {
-  const plate = text.replace("PDF", "").trim();
+    const plate = text.replace("PDF", "").trim();
 
-  const rows = await getPlateRows(plate);
-  const filePath = await createPdfReport(plate, rows);
+    const rows = await getPlateRows(plate);
+    const filePath = await createPdfReport(plate, rows);
 
-  console.log("PDF已產生:", filePath);
-  return;
-}
+    console.log("PDF已產生:", filePath);
+
+    const pdfName = filePath.split("/").pop();
+
+    const url =
+      `${process.env.PUBLIC_URL}/reports/${encodeURIComponent(pdfName)}`;
+
+    await client.replyMessage({
+      replyToken: event.replyToken,
+      messages: [
+        {
+          type: "text",
+          text: `📄帳單已產生\n${url}`
+        }
+      ]
+    });
+
+    return;
+  }
 
   const parsed = parseAccountingMessage(text);
   if (!parsed) return;
@@ -66,19 +85,19 @@ async function handleEvent(event) {
   const dateText = `${today.getMonth() + 1}/${today.getDate()}`;
 
   await enqueueSheetJob(() =>
-  appendAccountingRecord({
-    date: dateText,
-    group: parsed.group,
-    orderCode: parsed.orderCode,
-    plate: parsed.plate,
-    fare: parsed.fare,
-    item: parsed.item,
-    amount: parsed.amount,
-    fleet: "自家"
-  })
-);
+    appendAccountingRecord({
+      date: dateText,
+      group: parsed.group,
+      orderCode: parsed.orderCode,
+      plate: parsed.plate,
+      fare: parsed.fare,
+      item: parsed.item,
+      amount: parsed.amount,
+      fleet: "自家"
+    })
+  );
 
- console.log("記帳成功:", parsed.plate, parsed.orderCode, parsed.item, parsed.amount);
+  console.log("記帳成功:", parsed.plate, parsed.orderCode, parsed.item, parsed.amount);
 }
 
 app.get("/", (req, res) => {
