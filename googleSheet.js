@@ -254,6 +254,45 @@ function getOrderKey(text) {
     .trim();
 }
 
+async function updateSummary(sheetName) {
+  const sheets = await getSheets();
+
+  const read = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${sheetName}!A:G`
+  });
+
+  const rows = read.data.values || [];
+
+  let total = 0;
+
+  for (let i = 1; i < rows.length; i++) {
+    const item = rows[i][4];
+    const amount = Number(rows[i][5] || 0);
+
+    if (item === "回扣" || item === "百回") {
+      total += amount;
+    }
+  }
+
+  const fee = 2000;
+  const finalTotal = total + fee;
+
+  const summaryRow = rows.length + 2;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID,
+    range: `${sheetName}!A${summaryRow}:G${summaryRow + 1}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: {
+      values: [
+        [`回扣:${total} 月費:${fee} 總計:${finalTotal}`, "", "", "", "", "", ""],
+        ["158街口:903626458", "", "", "", "", "", ""]
+      ]
+    }
+  });
+}
+
 async function appendAccountingRecord(record) {
   const sheetName = record.plate;
 
@@ -297,8 +336,9 @@ for (let i = 1; i < rows.length; i++) {
       requestBody: { values }
     });
 
-    console.log("更新既有記帳:", record.plate, record.orderCode, record.item);
-    return;
+console.log("更新既有記帳:", record.plate, record.orderCode, record.item);
+await updateSummary(sheetName);
+return;
   }
 
   await sheets.spreadsheets.values.append({
@@ -310,6 +350,7 @@ for (let i = 1; i < rows.length; i++) {
   });
 
   console.log("新增記帳:", record.plate, record.orderCode, record.item);
+  await updateSummary(sheetName);
 }
 
 module.exports = {
