@@ -108,7 +108,7 @@ async function ensureHeader(sheetName) {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${sheetName}!A1:G1`
+    range: `${sheetName}!A1:H1`
   });
 
   const values = res.data.values || [];
@@ -116,13 +116,14 @@ async function ensureHeader(sheetName) {
   if (values.length === 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `${sheetName}!A1:G1`,
+      range: `${sheetName}!A1:H1`,
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [[
           "日期",
           "群",
           "單號",
+          "車牌",
           "車資",
           "項目",
           "金額",
@@ -137,9 +138,7 @@ async function formatSheet(sheetName) {
   const sheets = await getSheets();
   const spreadsheetId = await getActiveSpreadsheetId();
 
-  const info = await sheets.spreadsheets.get({
-    spreadsheetId
-  });
+  const info = await sheets.spreadsheets.get({ spreadsheetId });
 
   const target = info.data.sheets.find(
     s => s.properties.title === sheetName
@@ -169,7 +168,7 @@ async function formatSheet(sheetName) {
               startRowIndex: 0,
               endRowIndex: 1,
               startColumnIndex: 0,
-              endColumnIndex: 7
+              endColumnIndex: 8
             },
             cell: {
               userEnteredFormat: {
@@ -194,10 +193,11 @@ async function formatSheet(sheetName) {
           { col: 0, color: { red: 1, green: 1, blue: 0 } },
           { col: 1, color: { red: 0, green: 1, blue: 1 } },
           { col: 2, color: { red: 0, green: 1, blue: 0 } },
-          { col: 3, color: { red: 0.25, green: 0.55, blue: 0.9 } },
-          { col: 4, color: { red: 1, green: 1, blue: 0 } },
+          { col: 3, color: { red: 1, green: 1, blue: 0 } },
+          { col: 4, color: { red: 0.25, green: 0.55, blue: 0.9 } },
           { col: 5, color: { red: 1, green: 1, blue: 0 } },
-          { col: 6, color: { red: 0.25, green: 0.55, blue: 0.9 } }
+          { col: 6, color: { red: 1, green: 1, blue: 0 } },
+          { col: 7, color: { red: 0.25, green: 0.55, blue: 0.9 } }
         ].map(item => ({
           repeatCell: {
             range: {
@@ -221,7 +221,7 @@ async function formatSheet(sheetName) {
               sheetId,
               startRowIndex: 1,
               startColumnIndex: 0,
-              endColumnIndex: 7
+              endColumnIndex: 8
             },
             cell: {
               userEnteredFormat: {
@@ -247,8 +247,8 @@ async function formatSheet(sheetName) {
             range: {
               sheetId,
               startRowIndex: 1,
-              startColumnIndex: 4,
-              endColumnIndex: 5
+              startColumnIndex: 5,
+              endColumnIndex: 6
             },
             cell: {
               userEnteredFormat: {
@@ -267,7 +267,8 @@ async function formatSheet(sheetName) {
           { start: 3, end: 4, width: 110 },
           { start: 4, end: 5, width: 110 },
           { start: 5, end: 6, width: 110 },
-          { start: 6, end: 7, width: 110 }
+          { start: 6, end: 7, width: 110 },
+          { start: 7, end: 8, width: 110 }
         ].map(w => ({
           updateDimensionProperties: {
             range: {
@@ -294,80 +295,17 @@ function getOrderKey(text) {
     .trim();
 }
 
-async function clearSummaryRows(sheetName) {
-  const sheets = await getSheets();
-  const spreadsheetId = await getActiveSpreadsheetId();
-
-  const read = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A:G`
-  });
-
-  const rows = read.data.values || [];
-
-  for (let i = rows.length - 1; i >= 1; i--) {
-    const rowText = rows[i].join("");
-
-    if (rowText.includes("回扣:") || rowText.includes("158街口")) {
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId,
-        range: `${sheetName}!A${i + 1}:G${i + 1}`
-      });
-    }
-  }
-}
-
-async function updateSummary(sheetName) {
-  const sheets = await getSheets();
-  const spreadsheetId = await getActiveSpreadsheetId();
-
-  const read = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A:G`
-  });
-
-  const rows = read.data.values || [];
-
-  let total = 0;
-
-  for (let i = 1; i < rows.length; i++) {
-    const item = rows[i][4];
-    const amount = Number(rows[i][5] || 0);
-
-    if (item === "回扣" || item === "百回") {
-      total += amount;
-    }
-  }
-
-  const fee = 2000;
-  const finalTotal = total + fee;
-  const summaryRow = rows.length + 1;
-
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${sheetName}!C${summaryRow}:C${summaryRow + 1}`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: {
-      values: [
-        [`回扣:${total} 月費:${fee} 總計:${finalTotal}`],
-        ["158街口:903626458"]
-      ]
-    }
-  });
-}
-
 async function appendAccountingRecord(record) {
-  const sheetName = record.plate;
+  const sheetName = "總表";
 
   await ensureSheetExists(sheetName);
-  await clearSummaryRows(sheetName);
 
   const sheets = await getSheets();
   const spreadsheetId = await getActiveSpreadsheetId();
 
   const read = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${sheetName}!A:G`
+    range: `${sheetName}!A:H`
   });
 
   const rows = read.data.values || [];
@@ -376,8 +314,12 @@ async function appendAccountingRecord(record) {
 
   for (let i = 1; i < rows.length; i++) {
     const rowOrderCode = rows[i][2];
+    const rowPlate = rows[i][3];
 
-    if (getOrderKey(rowOrderCode) === getOrderKey(record.orderCode)) {
+    if (
+      getOrderKey(rowOrderCode) === getOrderKey(record.orderCode) &&
+      rowPlate === record.plate
+    ) {
       targetRow = i + 1;
       break;
     }
@@ -387,6 +329,7 @@ async function appendAccountingRecord(record) {
     record.date,
     record.group,
     record.orderCode,
+    record.plate,
     record.fare,
     record.item,
     record.amount,
@@ -396,35 +339,28 @@ async function appendAccountingRecord(record) {
   if (targetRow !== -1) {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `${sheetName}!A${targetRow}:G${targetRow}`,
+      range: `${sheetName}!A${targetRow}:H${targetRow}`,
       valueInputOption: "USER_ENTERED",
       requestBody: { values }
     });
 
     console.log("更新既有記帳:", record.plate, record.orderCode, record.item);
-    await updateSummary(sheetName);
     return;
   }
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${sheetName}!A:G`,
+    range: `${sheetName}!A:H`,
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: { values }
   });
 
   console.log("新增記帳:", record.plate, record.orderCode, record.item);
-  await updateSummary(sheetName);
 }
 
-module.exports = {
-  appendAccountingRecord,
-  getPlateRows
-};
-
 async function getPlateRows(plate) {
-  const sheetName = plate;
+  const sheetName = "總表";
 
   await ensureSheetExists(sheetName);
 
@@ -433,14 +369,17 @@ async function getPlateRows(plate) {
 
   const read = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${sheetName}!A:G`
+    range: `${sheetName}!A:H`
   });
 
   const rows = read.data.values || [];
 
-  // 去掉表頭、統計列
   return rows.slice(1).filter(row => {
-    const text = row.join("");
-    return !text.includes("回扣:") && !text.includes("158街口");
+    return row[3] === plate;
   });
 }
+
+module.exports = {
+  appendAccountingRecord,
+  getPlateRows
+};

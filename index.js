@@ -62,8 +62,8 @@ async function handleEvent(event) {
 
     const pdfName = filePath.split("/").pop();
 
-    const url =
-      `${process.env.PUBLIC_URL}/reports/${encodeURIComponent(pdfName)}`;
+    const publicUrl = process.env.PUBLIC_URL || "";
+    const url = `${publicUrl}/reports/${encodeURIComponent(pdfName)}`;
 
     await client.replyMessage({
       replyToken: event.replyToken,

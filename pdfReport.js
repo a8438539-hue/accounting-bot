@@ -52,24 +52,25 @@ async function createPdfReport(plate, rows) {
     let total = 0;
 
     doc.fontSize(11);
-    doc.text("日期 | 群 | 單號 | 車資 | 項目 | 金額 | 車隊");
+    doc.text("日期 | 群 | 單號 | 車牌 | 車資 | 項目 | 金額 | 車隊");
     doc.moveDown(0.5);
 
     for (const row of rows) {
       const date = row[0] || "";
       const group = row[1] || "";
       const orderCode = row[2] || "";
-      const fare = row[3] || "0";
-      const item = row[4] || "";
-      const amount = Number(row[5] || 0);
-      const fleet = row[6] || "";
+      const rowPlate = row[3] || "";
+      const fare = row[4] || "0";
+      const item = row[5] || "";
+      const amount = Number(row[6] || 0);
+      const fleet = row[7] || "";
 
       if (item === "回扣" || item === "百回") {
         total += amount;
       }
 
       doc.text(
-        `${date} | ${group} | ${orderCode} | ${fare} | ${item} | ${amount} | ${fleet}`
+        `${date} | ${group} | ${orderCode} | ${rowPlate} | ${fare} | ${item} | ${amount} | ${fleet}`
       );
     }
 
