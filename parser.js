@@ -21,11 +21,14 @@ const orderCode = orderLine;
 
   // 1. 一般客上：先記回扣20
   if (
-    actionLine === "上" ||
-    actionLine === "客上" ||
-    actionLine === "客人上車" ||
-    actionLine === "客人直接上車"
-  ) {
+  actionLine === "上" ||
+  actionLine === "客上" ||
+  actionLine === "客人上車" ||
+  actionLine === "客人直接上車" ||
+  actionLine === "⬆️" ||
+  actionLine === "⬆" ||
+  actionLine === "↑"
+) {
     return {
       mode: "normal",
       group,
