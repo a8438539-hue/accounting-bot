@@ -10,29 +10,13 @@ function parseAccountingMessage(text) {
   const plateLine = lines[1];
   const actionLine = lines[2];
 
-  const groupMatch = orderLine.match(/^#([^\/]+)/);
-
+  const groupMatch = orderLine.match(/^#([^\/\s]+)/);
   const group = groupMatch ? groupMatch[1] : "";
   const orderCode = groupMatch ? `#${group}` : "";
 
-  // 百回
-  if (orderLine.includes("百回")) {
-    const fareMatch = actionLine.match(/^(\d+)\/(\d+)$/);
+  if (!orderCode) return null;
 
-    if (!fareMatch) return null;
-
-    return {
-      type: "hundred",
-      group,
-      orderCode,
-      plate: plateLine,
-      fare: Number(fareMatch[1]),
-      item: "百回",
-      amount: Number(fareMatch[2])
-    };
-  }
-
-  // 一般單
+  // 1. 一般客上：先記回扣20
   if (
     actionLine === "上" ||
     actionLine === "客上" ||
@@ -40,13 +24,44 @@ function parseAccountingMessage(text) {
     actionLine === "客人直接上車"
   ) {
     return {
-      type: "normal",
+      mode: "normal",
       group,
       orderCode,
       plate: plateLine,
       fare: 0,
       item: "回扣",
       amount: 20
+    };
+  }
+
+  // 2. 改百回：先改成待補，不要算20
+  if (
+    actionLine === "改百回" ||
+    actionLine === "百回" ||
+    actionLine === "算百回"
+  ) {
+    return {
+      mode: "hundred_pending",
+      group,
+      orderCode,
+      plate: plateLine,
+      fare: 0,
+      item: "百回待補",
+      amount: 0
+    };
+  }
+
+  // 3. 補百回金額：600/80
+  const fareMatch = actionLine.match(/^(\d+)\/(\d+)$/);
+  if (fareMatch) {
+    return {
+      mode: "hundred_final",
+      group,
+      orderCode,
+      plate: plateLine,
+      fare: Number(fareMatch[1]),
+      item: "百回",
+      amount: Number(fareMatch[2])
     };
   }
 
