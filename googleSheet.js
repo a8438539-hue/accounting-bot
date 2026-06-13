@@ -88,7 +88,8 @@ async function ensureHeader(sheetName) {
 
 function getOrderKey(text) {
   return String(text || "")
-    .replace(/\s*百回\s*/g, "")
+    .replace(/百回/g, "")
+    .replace(/\s+/g, "")
     .trim();
 }
 
