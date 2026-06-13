@@ -17,6 +17,18 @@ const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
 
+let sheetQueue = Promise.resolve();
+
+function enqueueSheetJob(job) {
+  sheetQueue = sheetQueue
+    .then(job)
+    .catch(err => {
+      console.error("sheet job error:", err);
+    });
+
+  return sheetQueue;
+}
+
 app.post("/webhook", line.middleware(config), async (req, res) => {
   res.status(200).end();
 
@@ -43,7 +55,8 @@ async function handleEvent(event) {
   const today = new Date();
   const dateText = `${today.getMonth() + 1}/${today.getDate()}`;
 
-  await appendAccountingRecord({
+  await enqueueSheetJob(() =>
+  appendAccountingRecord({
     date: dateText,
     group: parsed.group,
     orderCode: parsed.orderCode,
@@ -52,7 +65,8 @@ async function handleEvent(event) {
     item: parsed.item,
     amount: parsed.amount,
     fleet: "自家"
-  });
+  })
+);
 
  console.log("記帳成功:", parsed.plate, parsed.orderCode, parsed.item, parsed.amount);
 }
